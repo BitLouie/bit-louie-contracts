@@ -1,0 +1,18 @@
+{
+  "name": "bit-louie-contracts",
+  "version": "1.0.0",
+  "description": "Bit Louie smart contracts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BitLouie/bit-louie-contracts.git"
+  },
+  "author": "Leeren",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/BitLouie/bit-louie-contracts/issues"
+  },
+  "homepage": "https://github.com/BitLouie/bit-louie-contracts#readme"
+}
