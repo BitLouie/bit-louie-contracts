@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.11;
 
-import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
-import '@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol';
-import '@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol';
-import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
+import "openzeppelin-contracts/token/ERC721/IERC721.sol";
+import "openzeppelin-contracts/token/ERC721/extensions/IERC721Enumerable.sol";
+import "openzeppelin-contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 
 /// @notice Token already minted.
 error DuplicateMint();
@@ -47,7 +47,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     /// @notice Gets the number of NFTs owned by a particular address.
     /// @dev To save gas, zero address queries do not throw (returns 0 instead).
     /// @return The number of NFTs owned by an address.
-    mapping(address => uint256) public balanceOf
+    mapping(address => uint256) public balanceOf;
 
     /// @notice Retrieves the assigned owner of an NFT.
     /// @dev Non-existent NFTs have the zero address assigned as their owner.
@@ -56,7 +56,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
 
     /// @notice Gets the approved address of an NFT.
     /// @dev To save gas, queries for non-existent NFTs do not throw.
-    /// @return NFT's approved address, or the zero address if there is none.
+    /// @return NFT"s approved address, or the zero address if there is none.
     mapping(uint256 => address) public getApproved;
 
     /// @notice Checks if an address is an authorized operator for an owner.
@@ -78,6 +78,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     /// @param _symbol    Abbreviated name of the NFT collection.
     /// @param _maxSupply Max supply allowed for the NFT collection.
     constructor(string memory _name, string memory _symbol, uint256 _maxSupply) {
+        maxSupply = _maxSupply;
         name = _name;
         symbol = _symbol;
 
@@ -99,7 +100,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
             revert InvalidOwner();
         }
         
-        if (msg.sender != from && msg.sender != getApproved[id] && !isApprovedForAll) {
+        if (msg.sender != from && msg.sender != getApproved[id] && !isApprovedForAll[from][msg.sender]) {
             revert UnauthorizedSender();
         }
 
@@ -132,7 +133,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     ) public virtual {
         transferFrom(from, to, id);
 
-        if (to.code.length != 0 && IERC721Receiver(to).onERC721Received(msg.sender, from, data) != IERC721Receiver.onERC721Received.selector) {
+        if (to.code.length != 0 && IERC721Receiver(to).onERC721Received(msg.sender, from, id, data) != IERC721Receiver.onERC721Received.selector) {
             revert InvalidReceiver();
         }
     }
@@ -146,11 +147,11 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     function safeTransferFrom(
         address from,
         address to,
-        uint256 tokenId
+        uint256 id
     ) public virtual {
         transferFrom(from, to, id);
 
-        if (to.code.length != 0 && IERC721Receiver(to).onERC721Received(msg.sender, from, "") != IERC721Receiver.onERC721Received.selector) {
+        if (to.code.length != 0 && IERC721Receiver(to).onERC721Received(msg.sender, from, id, "") != IERC721Receiver.onERC721Received.selector) {
             revert InvalidReceiver();
         }
     }
@@ -161,7 +162,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     /// @param approved The new approved address for the NFT
     /// @param id The NFT to approve
     function approve(address approved, uint256 id) public virtual {
-        address owner = ownerOf[tokenId];
+        address owner = ownerOf[id];
 
         if (msg.sender != owner && !isApprovedForAll[owner][msg.sender]) {
             revert UnauthorizedSender();
@@ -169,19 +170,19 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
 
         getApproved[id] = approved;
 
-        emit Approval(owner, spender, id);
+        emit Approval(owner, approved, id);
     }
 
     /// @notice Sets the operator for `msg.sender` to `operator`.
-    /// @param operator The operator that will manage the sender's NFTs
-    /// @param approved Whether the operator is allowed to operate sender's NFTs
+    /// @param operator The operator that will manage the sender"s NFTs
+    /// @param approved Whether the operator is allowed to operate sender"s NFTs
     function setApprovalForAll(address operator, bool approved) public virtual {
         isApprovedForAll[msg.sender][operator] = approved;
         emit ApprovalForAll(msg.sender, operator, approved);
     }
 
     /// @notice Checks if interface of identifier `interfaceId` is supported.
-    /// @param interfaceId Interface's ERC-165 identifier 
+    /// @param interfaceId Interface"s ERC-165 identifier 
     /// @return `true` if `interfaceId` is supported, `false` otherwise.
     function supportsInterface(bytes4 interfaceId) public pure virtual returns (bool) {
         return
@@ -229,7 +230,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
         }
 
         delete ownerOf[id];
-        emit Transfer(owner, adderss(0), id);
+        emit Transfer(owner, address(0), id);
     }
 
     /// @notice Generates a domain separator for making signatures unique.
