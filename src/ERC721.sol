@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.11;
+pragma solidity >=0.8.0;
 
-import "openzeppelin-contracts/token/ERC721/IERC721.sol";
-import "openzeppelin-contracts/token/ERC721/extensions/IERC721Enumerable.sol";
-import "openzeppelin-contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
+import {console} from "src/test/utils/console.sol";
+
+import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 
 /// @notice Token already minted.
 error DuplicateMint();
@@ -16,7 +18,7 @@ error InvalidOwner();
 error InvalidReceiver();
 
 /// @notice Destination address is the zero address, which is invalid.
-error InvalidRecipient();
+error ZeroAddressReceiver();
 
 /// @notice NFT does not exist.
 error NonExistentNFT();
@@ -88,35 +90,11 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
 
     /// @notice Transfers ownership of NFT `id` from `from` to `to`, without
     ///  safety checks on whether `to` is capable of receiving NFTs.
-    /// @dev This implementation does not explicitly check if the NFT exists,
-    ///  since any non-existent NFTs would not have an associated owner anyway.
-    ///  Approval event omitted as Transfer events indicate approval clearance.
     /// @param from The current owner of the NFT
     /// @param to The new owner of the NFT
     /// @param id The NFT transferred
     function transferFrom(address from, address to, uint256 id) public virtual {
-        address owner = ownerOf[id];
-        if (from != owner) {
-            revert InvalidOwner();
-        }
-        
-        if (msg.sender != from && msg.sender != getApproved[id] && !isApprovedForAll[from][msg.sender]) {
-            revert UnauthorizedSender();
-        }
-
-        if (to == address(0)) {
-            revert InvalidRecipient();
-        }
-
-        delete getApproved[id];
-
-        unchecked {
-            balanceOf[from]--;
-            balanceOf[to]++;
-        }
-
-        ownerOf[id] = to;
-        emit Transfer(from, to, id);
+        _transferFrom(from, to, id);
     }
 
     /// @notice Transfers ownership of NFT `id` from `from` to `to`, with
@@ -131,7 +109,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
         uint256 id,
         bytes memory data
     ) public virtual {
-        transferFrom(from, to, id);
+        _transferFrom(from, to, id);
 
         if (to.code.length != 0 && IERC721Receiver(to).onERC721Received(msg.sender, from, id, data) != IERC721Receiver.onERC721Received.selector) {
             revert InvalidReceiver();
@@ -149,7 +127,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
         address to,
         uint256 id
     ) public virtual {
-        transferFrom(from, to, id);
+        _transferFrom(from, to, id);
 
         if (to.code.length != 0 && IERC721Receiver(to).onERC721Received(msg.sender, from, id, "") != IERC721Receiver.onERC721Received.selector) {
             revert InvalidReceiver();
@@ -191,6 +169,38 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
             interfaceId == _ERC721_METADATA_INTERFACE_ID;
     }
 
+    /// @notice Transfers ownership of NFT `id` from `from` to `to`.
+    /// @dev This implementation does not explicitly check if the NFT exists,
+    ///  since any non-existent NFTs would not have an associated owner anyway.
+    ///  Approval event omitted as Transfer events indicate approval clearance.
+    /// @param from The current owner of the NFT
+    /// @param to The new owner of the NFT
+    /// @param id The NFT transferred
+    function _transferFrom(address from, address to, uint256 id) internal virtual {
+        address owner = ownerOf[id];
+        if (from != owner) {
+            revert InvalidOwner();
+        }
+        
+        if (msg.sender != from && msg.sender != getApproved[id] && !isApprovedForAll[from][msg.sender]) {
+            revert UnauthorizedSender();
+        }
+
+        if (to == address(0)) {
+            revert ZeroAddressReceiver();
+        }
+
+        delete getApproved[id];
+
+        unchecked {
+            balanceOf[from]--;
+            balanceOf[to]++;
+        }
+
+        ownerOf[id] = to;
+        emit Transfer(from, to, id);
+    }
+
     /// @notice Mints NFT `id` to address `to`.
     /// @dev Saves gas assuming maxSupply < type(uint256).max for unchecked ops.
     ///  Transfer events indicate approval clearance (Approval not emitted).
@@ -198,7 +208,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     /// @param id NFT being minted
     function _mint(address to, uint256 id) internal virtual {
         if (to == address(0)) {
-            revert InvalidRecipient();
+            revert ZeroAddressReceiver();
         }
         if (ownerOf[id] != address(0)) {
             revert DuplicateMint();
@@ -265,6 +275,5 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     function _hashTypedData(bytes32 structHash) internal view virtual returns (bytes32) {
         return keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
     }
-
 
 }
