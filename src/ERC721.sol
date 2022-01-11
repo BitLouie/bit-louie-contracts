@@ -79,7 +79,12 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     /// @param _name      Name of the NFT collection.
     /// @param _symbol    Abbreviated name of the NFT collection.
     /// @param _maxSupply Max supply allowed for the NFT collection.
-    constructor(string memory _name, string memory _symbol, uint256 _maxSupply) {
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        uint256 _maxSupply
+    ) 
+    {
         maxSupply = _maxSupply;
         name = _name;
         symbol = _symbol;
@@ -111,7 +116,11 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     ) public virtual {
         _transferFrom(from, to, id);
 
-        if (to.code.length != 0 && IERC721Receiver(to).onERC721Received(msg.sender, from, id, data) != IERC721Receiver.onERC721Received.selector) {
+        if (
+            to.code.length != 0 && 
+                IERC721Receiver(to).onERC721Received(msg.sender, from, id, data) != 
+                IERC721Receiver.onERC721Received.selector
+        ) {
             revert InvalidReceiver();
         }
     }
@@ -129,7 +138,12 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     ) public virtual {
         _transferFrom(from, to, id);
 
-        if (to.code.length != 0 && IERC721Receiver(to).onERC721Received(msg.sender, from, id, "") != IERC721Receiver.onERC721Received.selector) {
+        if (
+            to.code.length != 0 && 
+                IERC721Receiver(to).onERC721Received(msg.sender, from, id, "") != 
+                IERC721Receiver.onERC721Received.selector
+        ) 
+        {
             revert InvalidReceiver();
         }
     }
@@ -182,7 +196,12 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
             revert InvalidOwner();
         }
         
-        if (msg.sender != from && msg.sender != getApproved[id] && !isApprovedForAll[from][msg.sender]) {
+        if (
+            msg.sender != from && 
+            msg.sender != getApproved[id] && 
+            !isApprovedForAll[from][msg.sender]
+        ) 
+        {
             revert UnauthorizedSender();
         }
 
@@ -272,8 +291,15 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     /// @notice Returns an EIP-712 encoding of structured data `structHash`.
     /// @param structHash The structured data to be encoded and signed.
     /// @return A bytestring suitable for signing in accordance to EIP-712.
-    function _hashTypedData(bytes32 structHash) internal view virtual returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
+    function _hashTypedData(bytes32 structHash) 
+        internal view virtual 
+        returns (bytes32) 
+    {
+        return keccak256(
+            abi.encodePacked("\x19\x01",
+            _domainSeparator(),
+            structHash)
+        );
     }
 
 }
