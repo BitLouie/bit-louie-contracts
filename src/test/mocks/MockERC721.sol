@@ -5,7 +5,7 @@ import "src/ERC721.sol";
 
 contract MockERC721 is ERC721 {
 
-    bytes constant DATA = "Bit Louie";
+    bytes public constant DATA = "Bit Louie";
 
     constructor(string memory _name, string memory _symbol, uint256 _maxSupply)
         ERC721(_name, _symbol, _maxSupply) {}

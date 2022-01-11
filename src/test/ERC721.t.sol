@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.0;
 
-import "ds-test/test.sol";
-
 import "src/test/mocks/MockERC721.sol";
 import "src/test/mocks/MockERC721Receiver.sol";
-import "src/test/utils/Hevm.sol";
 
-import {console} from "src/test/utils/console.sol";
+import "src/test/utils/Test.sol";
 
 /// @title ERC721 Test Suites
-contract ERC721Test is DSTest {
+contract ERC721Test is Test {
 
     bytes4 constant RECEIVER_MAGIC_VALUE = 0x150b7a02;
 
@@ -18,10 +15,8 @@ contract ERC721Test is DSTest {
     uint256 constant NONEXISTENT_NFT = 99;
 
     address constant FROM = address(1337);
-    address constant TO= address(69);
+    address constant TO = address(69);
     address constant OPERATOR = address(420);
-
-    Hevm constant vm = Hevm(HEVM_ADDRESS);
 
     MockERC721 token;
 
@@ -33,10 +28,17 @@ contract ERC721Test is DSTest {
     /// @notice Event emitted to test ERC721 Receiver behavior.
     event ERC721Received(address operator, address from, uint256 tokenId, bytes data);
 
+    /// @notice Used for subtests that modify state.
+    modifier reset {
+        _;
+        setUp();
+    }
+
     /// @dev All tests revolve around premise of `NFT` originating from `FROM`.
     function setUp() public {
         token = new MockERC721("Mock Token", "MT", 10);
         token.mint(FROM, NFT);
+        vm.startPrank(FROM);
     }
 
     function testConstructor() public {
@@ -58,9 +60,6 @@ contract ERC721Test is DSTest {
     }
 
     function testOwnerOf() public {
-        assertEq(token.ownerOf(NFT), FROM);
-
-        vm.prank(FROM);
         token.transferFrom(FROM, TO, NFT);
         assertEq(token.ownerOf(NFT), TO);
 
@@ -72,7 +71,6 @@ contract ERC721Test is DSTest {
         assertEq(token.getApproved(NONEXISTENT_NFT), address(0));
         assertEq(token.getApproved(NFT), address(0)); // Unapproved NFT
 
-        vm.startPrank(FROM);
         token.approve(OPERATOR, NFT); 
         assertEq(token.getApproved(NFT), OPERATOR); // Approved NFT
 
@@ -81,24 +79,18 @@ contract ERC721Test is DSTest {
     } 
 
     function testApprove() public {
-        // Throws when unauthorized senders try to approve.
-        expectRevert("UnauthorizedSender()");
-        token.approve(OPERATOR, NFT);
-
         // Approval succeeds when owner approves.
-        vm.prank(FROM);
         vm.expectEmit(true, true, true, true);
         emit Approval(FROM, OPERATOR, NFT);
         token.approve(OPERATOR, NFT);
         assertEq(token.getApproved(NFT), OPERATOR);
 
-        // Approvals fail when invoked by the approved address.
+        // Approvals fail when invoked by the unauthorized address.
         vm.prank(OPERATOR);
         expectRevert("UnauthorizedSender()");
         token.approve(OPERATOR, NFT);
 
         // Approvals succeed when executed by the authorized operator.
-        vm.prank(FROM);
         token.setApprovalForAll(OPERATOR, true);
         vm.prank(OPERATOR);
         vm.expectEmit(true, true, true, true);
@@ -119,15 +111,11 @@ contract ERC721Test is DSTest {
     }
 
     function testSetApprovalForAll() public {
-        assertTrue(!token.isApprovedForAll(FROM,OPERATOR));
-
-        vm.prank(FROM);
         vm.expectEmit(true, true, true, true);
         emit ApprovalForAll(FROM, OPERATOR, true);
         token.setApprovalForAll(OPERATOR, true);
         assertTrue(token.isApprovedForAll(FROM,OPERATOR));
 
-        vm.prank(FROM);
         vm.expectEmit(true, true, true, true);
         emit ApprovalForAll(FROM, OPERATOR, false);
         token.setApprovalForAll(OPERATOR, false);
@@ -141,26 +129,25 @@ contract ERC721Test is DSTest {
     }
 
     function testSafeTransferFromBehavior() public {
-        _testSafeTransferBehavior(token.safeTransferFromWithoutData);
-        _testSafeTransferBehavior(token.safeTransferFromWithData);
+        _testSafeTransferBehavior(token.safeTransferFromWithoutData, "");
+        _testSafeTransferBehavior(token.safeTransferFromWithData, token.DATA());
     }
 
     function testTransferFromBehavior() public {
         _testTransferBehavior(token.transferFrom, TO);
+        _testTransferBehavior(token.safeTransferFromWithoutData, TO);
     }
 
-    function _testSafeTransferBehavior(function(address, address, uint256) external fn) internal {
-        // Transferring to an EOA
-        _testTransferBehavior(fn, TO);
-
+    function _testSafeTransferBehavior(
+        function(address, address, uint256) external fn,
+        bytes memory data
+    ) internal {
         // Transferring to a contract
         _testSafeTransferFailure(fn);
-        _testSafeTransferSuccess(fn);
+        _testSafeTransferSuccess(fn, data);
     }
 
   	function _testSafeTransferFailure(function(address, address, uint256) external fn) internal {
-        vm.startPrank(FROM);
-
         // Should throw when receiver magic value is invalid.
         MockERC721Receiver invalidReceiver = new MockERC721Receiver(0xDEADBEEF, false);
         expectRevert("InvalidReceiver()");
@@ -174,21 +161,19 @@ contract ERC721Test is DSTest {
         // Should throw when receiver function is not implemented.
         vm.expectRevert("");
         fn(FROM, address(this), NFT);
-        vm.stopPrank();
     }
 
-    function _testSafeTransferSuccess(function(address, address, uint256) external fn) internal {
+    function _testSafeTransferSuccess(
+        function(address, address, uint256) external fn,
+        bytes memory data
+    ) internal reset {
         MockERC721Receiver validReceiver = new MockERC721Receiver(RECEIVER_MAGIC_VALUE, false);
-        vm.prank(FROM);
-        vm.expectEmit(true, true, true, false);
-        emit ERC721Received(FROM, FROM, NFT, "");
+        vm.expectEmit(true, true, true, true);
+        emit ERC721Received(FROM, FROM, NFT, data);
         fn(FROM, address(validReceiver), NFT);
 
         assertEq(token.ownerOf(NFT), address(validReceiver));
-        vm.prank(address(validReceiver));
-        fn(address(validReceiver), FROM, NFT);
     }
-
 
     function _testTransferBehavior(function(address, address, uint256) external fn, address to) internal {
         // Test transfer failure conditions.
@@ -198,26 +183,24 @@ contract ERC721Test is DSTest {
         _testTransferSuccess(token.transferFrom, FROM, to);
 
         // Test transfers through an approved address.
-        vm.prank(FROM);
         token.approve(OPERATOR, NFT);
         _testTransferSuccess(token.transferFrom, OPERATOR, to);
 
         // Test transfers through an authorized operator.
-        vm.prank(FROM);
         token.setApprovalForAll(OPERATOR, true);
         _testTransferSuccess(token.transferFrom, OPERATOR, to);
     }
 
     function _testTransferFailure(function(address, address, uint256) external fn, address to) internal {
+        expectRevert("ZeroAddressReceiver()");
+        fn(FROM, address(0), NFT);
+
         expectRevert("InvalidOwner()");
         fn(to, to, NFT);
 
+        vm.prank(TO);
         expectRevert("UnauthorizedSender()");
         fn(FROM, to, NFT);
-
-        vm.prank(FROM);
-        expectRevert("ZeroAddressReceiver()");
-        fn(FROM, address(0), NFT);
     }
 
     /// @dev Test successful transfer of `NFT` from `FROM` to `to`,
@@ -227,15 +210,12 @@ contract ERC721Test is DSTest {
         address sender,
         address to
     ) 
-        internal 
+        internal reset
     {
-        assertEq(1, token.balanceOf(FROM));
-        assertEq(token.ownerOf(NFT), FROM);
-
-    vm.prank(sender);
-    vm.expectEmit(true, true, true, true);
-    emit Transfer(FROM, to, NFT);
-    token.transferFrom(FROM, to, NFT);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(FROM, to, NFT);
+        vm.prank(sender);
+        token.transferFrom(FROM, to, NFT);
 
         if (to != FROM) {
             assertEq(0, token.balanceOf(FROM));
@@ -246,12 +226,6 @@ contract ERC721Test is DSTest {
 
         assertEq(token.getApproved(NFT), address(0)); // Clear approvals
         assertEq(token.ownerOf(NFT), to);
-        vm.prank(to);
-        token.transferFrom(to, FROM, NFT);
-    }
-
-    function expectRevert(string memory error) internal {
-        return vm.expectRevert(abi.encodeWithSignature(error));
     }
 
 }
