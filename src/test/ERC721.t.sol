@@ -193,6 +193,7 @@ contract ERC721Test is Test {
 
     function _testTransferFailure(function(address, address, uint256) external fn, address to) internal {
         expectRevert("ZeroAddressReceiver()");
+
         fn(FROM, address(0), NFT);
 
         expectRevert("InvalidOwner()");

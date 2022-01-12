@@ -30,6 +30,7 @@ error SupplyMaxCapacity();
 error UnauthorizedSender();
 
 /// @title Bit Louie ERC721 base contract
+/// @author Leeren
 /// @notice ERC-721 contract with metadata extension and capped supply.
 /// @dev The contract also contains components needed for EIP-712 signing.
 abstract contract ERC721 is IERC721, IERC721Metadata {
@@ -191,8 +192,7 @@ abstract contract ERC721 is IERC721, IERC721Metadata {
     /// @param to The new owner of the NFT
     /// @param id The NFT transferred
     function _transferFrom(address from, address to, uint256 id) internal virtual {
-        address owner = ownerOf[id];
-        if (from != owner) {
+        if (from != ownerOf[id]) {
             revert InvalidOwner();
         }
         
